@@ -1,0 +1,69 @@
+{
+    "name": "yt- error alert",
+    "nodes": [
+        {
+            "parameters": {},
+            "type": "n8n-nodes-base.errorTrigger",
+            "typeVersion": 1,
+            "position": [
+                0,
+                0
+            ],
+            "id": "dec8f12f-edee-44b4-93bf-09939a9914c8",
+            "name": "Error Trigger"
+        },
+        {
+            "parameters": {
+                "sendTo": "nishikabishnoi713@gmail.com",
+                "subject": "=⚠️ Workflow failed: {{ $json.workflow.name }}",
+                "message": "=The workflow \"{{ $json.workflow.name }}\" failed.  Failed node: {{ $json.execution.lastNodeExecuted }} Error: {{ $json.execution.error.message }} Time: {{ $now.toFormat('dd MMM yyyy, HH:mm') }}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.gmail",
+            "typeVersion": 2.2,
+            "position": [
+                208,
+                0
+            ],
+            "id": "b9f406b1-5479-4537-9f00-f620492ff9c7",
+            "name": "Send a message",
+            "webhookId": "12bea760-985d-4b0a-8397-c9b967086a80",
+            "credentials": {
+                "gmailOAuth2": {
+                    "id": "FodUAYCU66T6cB7v",
+                    "name": "Gmail account"
+                }
+            }
+        }
+    ],
+    "pinData": {},
+    "connections": {
+        "Error Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "Send a message",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "active": true,
+    "settings": {
+        "executionOrder": "v1",
+        "binaryMode": "separate",
+        "availableInMCP": false,
+        "timeSavedMode": "fixed",
+        "callerPolicy": "workflowsFromSameOwner"
+    },
+    "versionId": "e13f14a4-1ea1-48b8-a944-6e2550d370fe",
+    "meta": {
+        "templateCredsSetupCompleted": true,
+        "instanceId": "68e5592d2b2371f8ea8e78cfb8bdb536ba14dad9c6f538d68c5b9851395cbc0e"
+    },
+    "nodeGroups": [],
+    "id": "Q7VmwweX6sD5hROh",
+    "tags": []
+}
