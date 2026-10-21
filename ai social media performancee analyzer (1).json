@@ -1,0 +1,643 @@
+{
+    "name": "ai social media performancee analyzer",
+    "nodes": [
+        {
+            "parameters": {},
+            "type": "n8n-nodes-base.manualTrigger",
+            "typeVersion": 1,
+            "position": [
+                0,
+                0
+            ],
+            "id": "91970a44-487c-43c1-8c3d-36f11baff405",
+            "name": "When clicking ‘Execute workflow’"
+        },
+        {
+            "parameters": {
+                "url": "https://www.googleapis.com/youtube/v3/channels",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpQueryAuth",
+                "sendQuery": true,
+                "queryParameters": {
+                    "parameters": [
+                        {
+                            "name": "part",
+                            "value": "contentDetails"
+                        },
+                        {
+                            "name": "forHandle",
+                            "value": "@SambhavnaSethEntertainment"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.4,
+            "position": [
+                208,
+                0
+            ],
+            "id": "512ee4c5-fb19-4d6c-945b-bc1a4e2cc464",
+            "name": "HTTP Request",
+            "credentials": {
+                "httpQueryAuth": {
+                    "id": "fMQu4z7x6nHbhZHf",
+                    "name": "Query Auth account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "url": "https://www.googleapis.com/youtube/v3/playlistItems",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpQueryAuth",
+                "sendQuery": true,
+                "queryParameters": {
+                    "parameters": [
+                        {
+                            "name": "part",
+                            "value": "contentDetails"
+                        },
+                        {
+                            "name": "maxResult",
+                            "value": "50"
+                        },
+                        {
+                            "name": "playlistId",
+                            "value": "={{ $json.items[0].contentDetails.relatedPlaylists.uploads }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.4,
+            "position": [
+                416,
+                0
+            ],
+            "id": "66f5458b-b252-4760-83cd-180682d77433",
+            "name": "HTTP Request1",
+            "credentials": {
+                "httpQueryAuth": {
+                    "id": "fMQu4z7x6nHbhZHf",
+                    "name": "Query Auth account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "const ids = $input.all()\n  .flatMap(i => i.json.items.map(v => v.contentDetails.videoId));\nreturn [{ json: { ids: ids.join(',') } }];"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                624,
+                0
+            ],
+            "id": "6feecb33-488c-4109-b4a7-3655d1e162a7",
+            "name": "Code in JavaScript"
+        },
+        {
+            "parameters": {
+                "url": "https://www.googleapis.com/youtube/v3/videos",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpQueryAuth",
+                "sendQuery": true,
+                "queryParameters": {
+                    "parameters": [
+                        {
+                            "name": "part",
+                            "value": "snippet,statistics"
+                        },
+                        {
+                            "name": "id",
+                            "value": "={{ $json.ids }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.4,
+            "position": [
+                832,
+                0
+            ],
+            "id": "54851cba-b893-425d-b4f2-fa69c2829bb9",
+            "name": "HTTP Request2",
+            "credentials": {
+                "httpQueryAuth": {
+                    "id": "fMQu4z7x6nHbhZHf",
+                    "name": "Query Auth account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "fieldToSplitOut": "items",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.splitOut",
+            "typeVersion": 1,
+            "position": [
+                1248,
+                -16
+            ],
+            "id": "f6afe5cc-a7f0-495e-92f2-faee9db6d7e8",
+            "name": "Split Out"
+        },
+        {
+            "parameters": {
+                "jsCode": "const videos = $input.all().map(i => i.json);\n\nconst average = list => list.length\n  ? list.reduce((sum, n) => sum + n, 0) / list.length\n  : 0;\n\n// Sort all videos from best to worst engagement\nconst ranked = [...videos].sort((a, b) => b.engagement_rate - a.engagement_rate);\n\n// Group engagement rates by the weekday each video was published\nconst byDay = {};\nvideos.forEach(v => {\n  const day = new Date(v.published_at)\n    .toLocaleDateString('en-US', { weekday: 'long' });\n  if (!byDay[day]) byDay[day] = [];\n  byDay[day].push(v.engagement_rate);\n});\n\nconst days = Object.entries(byDay)\n  .map(([day, rates]) => ({\n    day,\n    avg_engagement: Number(average(rates).toFixed(2)),\n    videos: rates.length\n  }))\n  .sort((a, b) => b.avg_engagement - a.avg_engagement);\n\nconst pick = v => ({\n  title: v.title,\n  views: v.views,\n  engagement_rate: v.engagement_rate\n});\n\nreturn [{ json: {\n  total_videos: videos.length,\n  total_views: videos.reduce((sum, v) => sum + v.views, 0),\n  avg_engagement: Number(average(videos.map(v => v.engagement_rate)).toFixed(2)),\n  top3: ranked.slice(0, 3).map(pick),\n  bottom3: ranked.slice(-3).map(pick),\n  best_day: days[0],\n  by_day: days\n}}];"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1872,
+                128
+            ],
+            "id": "f4508ffd-dd2b-44bd-b3ae-df955d2a85fe",
+            "name": "analysis code node"
+        },
+        {
+            "parameters": {
+                "assignments": {
+                    "assignments": [
+                        {
+                            "id": "c2ff4eb4-55bb-43ee-bfc1-1dfbf1c2ba5e",
+                            "name": "video_id",
+                            "value": "={{ $json.id }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "3e146a35-2c95-4338-ae8b-653d0fdde67a",
+                            "name": "title",
+                            "value": "={{ $json.snippet.title }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "1634d02c-2f73-4744-bcc6-23994df78851",
+                            "name": "publishedAt",
+                            "value": "={{ $json.snippet.publishedAt }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "e97c1da2-694e-4540-bec9-444ade1f5779",
+                            "name": "views",
+                            "value": "={{ Number($json.statistics.viewCount) }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "42a31cd4-fc1c-4d67-8876-721e6985efe3",
+                            "name": "likes",
+                            "value": "={{ Number($json.statistics.likeCount || 0) }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "7ce63db3-ad1c-4e3e-8996-05d09d6d8eb5",
+                            "name": "comments",
+                            "value": "={{ Number($json.statistics.commentCount || 0) }}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 3.4,
+            "position": [
+                1440,
+                -16
+            ],
+            "id": "2c74bf57-b525-4b92-8888-36fa301c5653",
+            "name": "essential info "
+        },
+        {
+            "parameters": {
+                "assignments": {
+                    "assignments": [
+                        {
+                            "id": "3ad20824-6872-40a3-9fbf-350da7e43419",
+                            "name": "engagement_rate",
+                            "value": "={{ $json.views > 0 ? Number((($json.likes + $json.comments) / $json.views * 100).toFixed(2)) : 0 }}",
+                            "type": "number"
+                        },
+                        {
+                            "id": "d57b7fbe-f42e-4e5b-b2e0-5f19a7cf78a5",
+                            "name": "fetched_date",
+                            "value": "={{ $now.toFormat('yyyy-MM-dd') }}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "includeOtherFields": true,
+                "options": {}
+            },
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 3.4,
+            "position": [
+                1632,
+                -16
+            ],
+            "id": "08c852d0-d475-4179-81a1-03a2d809c153",
+            "name": "engament review"
+        },
+        {
+            "parameters": {
+                "operation": "append",
+                "documentId": {
+                    "__rl": true,
+                    "value": "1Koq3h3piKG6DTFYeXs7WDomD0iRzmqjCc7Gu8XATKzQ",
+                    "mode": "list",
+                    "cachedResultName": "social media performance analyzer",
+                    "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Koq3h3piKG6DTFYeXs7WDomD0iRzmqjCc7Gu8XATKzQ/edit?usp=drivesdk"
+                },
+                "sheetName": {
+                    "__rl": true,
+                    "value": "gid=0",
+                    "mode": "list",
+                    "cachedResultName": "Sheet1",
+                    "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Koq3h3piKG6DTFYeXs7WDomD0iRzmqjCc7Gu8XATKzQ/edit#gid=0"
+                },
+                "columns": {
+                    "mappingMode": "defineBelow",
+                    "value": {
+                        "video_id": "={{ $json.video_id }}",
+                        "title": "={{ $json.title }}",
+                        "published_date": "={{ $json.publishedAt }}",
+                        "views": "={{ $json.views }}",
+                        "likes": "={{ $json.likes }}",
+                        "comments": "={{ $json.comments }}",
+                        "engament_rate": "={{ $json.engagement_rate }}",
+                        "fetched_date": "={{ $json.fetched_date }}"
+                    },
+                    "matchingColumns": [],
+                    "schema": [
+                        {
+                            "id": "video_id",
+                            "displayName": "video_id",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true
+                        },
+                        {
+                            "id": "title",
+                            "displayName": "title",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true
+                        },
+                        {
+                            "id": "published_date",
+                            "displayName": "published_date",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true
+                        },
+                        {
+                            "id": "views",
+                            "displayName": "views",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true
+                        },
+                        {
+                            "id": "likes",
+                            "displayName": "likes",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true
+                        },
+                        {
+                            "id": "comments",
+                            "displayName": "comments",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true
+                        },
+                        {
+                            "id": "engament_rate",
+                            "displayName": "engament_rate",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true
+                        },
+                        {
+                            "id": "fetched_date",
+                            "displayName": "fetched_date",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true
+                        }
+                    ],
+                    "attemptToConvertTypes": false,
+                    "convertFieldsToString": false
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.googleSheets",
+            "typeVersion": 4.7,
+            "position": [
+                1856,
+                -80
+            ],
+            "id": "de74afb2-56bf-43d3-b48e-1a215bd22580",
+            "name": "raw data save",
+            "credentials": {
+                "googleSheetsOAuth2Api": {
+                    "id": "huaLTMUlw15CE3gO",
+                    "name": "Google Sheets account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "promptType": "define",
+                "text": "=You are a social media analyst. Using ONLY the data below, write a short weekly report with:\n\n1. Summary: 2 sentences about overall performance\n2. Insights: exactly 3 bullet points based on the numbers\n3. Recommendation: 1 specific action for next week\n\nRules:\n- Use only numbers that appear in the data. Do not invent anything.\n- Write in simple, friendly English.\n- Keep the whole report under 150 words.\n- If a weekday has only 1 or 2 videos, say that the result is based on few videos.\n\nData:\n{{ JSON.stringify($json) }}",
+                "options": {}
+            },
+            "type": "@n8n/n8n-nodes-langchain.agent",
+            "typeVersion": 3.1,
+            "position": [
+                2032,
+                128
+            ],
+            "id": "b133dfb3-3250-4fd5-866b-fee0aab5452d",
+            "name": "AI Agent"
+        },
+        {
+            "parameters": {
+                "options": {}
+            },
+            "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+            "typeVersion": 1.1,
+            "position": [
+                2032,
+                320
+            ],
+            "id": "62bb23e4-9bb1-48b7-b831-743821d3b746",
+            "name": "Google Gemini Chat Model",
+            "credentials": {
+                "googlePalmApi": {
+                    "id": "6vsJrjSrvMRTWi3S",
+                    "name": "Google Gemini(PaLM) Api account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "sendTo": "nishikabishnoi713@gmail.com",
+                "subject": "=Weekly YouTube Report - {{ $now.toFormat('dd MMM yyyy') }}",
+                "message": "={{ $json.output }}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.gmail",
+            "typeVersion": 2.2,
+            "position": [
+                2352,
+                128
+            ],
+            "id": "805a0add-ee84-4114-80bb-79ae3e7d0fa9",
+            "name": "Send a message",
+            "webhookId": "f12dd9da-2750-4606-9813-c043411e0e94",
+            "credentials": {
+                "gmailOAuth2": {
+                    "id": "FodUAYCU66T6cB7v",
+                    "name": "Gmail account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict",
+                        "version": 3
+                    },
+                    "conditions": [
+                        {
+                            "id": "3e67b372-ac70-4df7-8f1d-45c8320facf1",
+                            "leftValue": "={{ $json.items?.length || 0 }}",
+                            "rightValue": 0,
+                            "operator": {
+                                "type": "number",
+                                "operation": "gt"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.3,
+            "position": [
+                1008,
+                0
+            ],
+            "id": "1eaeaaa9-fd70-4600-a4c7-31a010bf0b95",
+            "name": "If"
+        },
+        {
+            "parameters": {
+                "errorMessage": "no video return "
+            },
+            "type": "n8n-nodes-base.stopAndError",
+            "typeVersion": 1,
+            "position": [
+                1152,
+                144
+            ],
+            "id": "6d2708d7-feb6-4dee-8d16-2eebe305afc1",
+            "name": "Stop and Error"
+        }
+    ],
+    "pinData": {},
+    "connections": {
+        "When clicking ‘Execute workflow’": {
+            "main": [
+                [
+                    {
+                        "node": "HTTP Request",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "HTTP Request": {
+            "main": [
+                [
+                    {
+                        "node": "HTTP Request1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "HTTP Request1": {
+            "main": [
+                [
+                    {
+                        "node": "Code in JavaScript",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Code in JavaScript": {
+            "main": [
+                [
+                    {
+                        "node": "HTTP Request2",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "HTTP Request2": {
+            "main": [
+                [
+                    {
+                        "node": "If",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Split Out": {
+            "main": [
+                [
+                    {
+                        "node": "essential info ",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "essential info ": {
+            "main": [
+                [
+                    {
+                        "node": "engament review",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "engament review": {
+            "main": [
+                [
+                    {
+                        "node": "raw data save",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "analysis code node",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "raw data save": {
+            "main": [
+                []
+            ]
+        },
+        "analysis code node": {
+            "main": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Google Gemini Chat Model": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "AI Agent": {
+            "main": [
+                [
+                    {
+                        "node": "Send a message",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "If": {
+            "main": [
+                [
+                    {
+                        "node": "Split Out",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Stop and Error",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "active": false,
+    "settings": {
+        "executionOrder": "v1",
+        "binaryMode": "separate",
+        "availableInMCP": false,
+        "timeSavedMode": "fixed",
+        "callerPolicy": "workflowsFromSameOwner"
+    },
+    "versionId": "ff3f376b-4175-4b33-abd2-5c8f09c1ceca",
+    "meta": {
+        "templateCredsSetupCompleted": true,
+        "instanceId": "68e5592d2b2371f8ea8e78cfb8bdb536ba14dad9c6f538d68c5b9851395cbc0e"
+    },
+    "nodeGroups": [],
+    "id": "tIx7oQDRwRaC0kNK",
+    "tags": []
+}
